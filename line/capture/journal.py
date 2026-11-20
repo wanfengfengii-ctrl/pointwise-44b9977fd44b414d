@@ -3,6 +3,7 @@ from fractions import Fraction
 
 from line.calibration.exact import fraction_from_storage, fraction_to_storage
 from line.capture.identity import ReadingClaim, ReadingKey
+from line.capture.transfers import local_head
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,7 @@ class ReadingJournal:
                 raise ReadingConflict(f'reading {claim.key.reading_id!r} has different original parameters')
             return original
 
-        sequence = self.head(claim.key.shift_id, claim.station) + 1
+        sequence = local_head(self.db, claim.key.shift_id, claim.station) + 1
         self.db.execute(f'''
             INSERT INTO readings({_READING_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (claim.key.shift_id, claim.key.reading_id, claim.station, claim.specimen_id, sequence,
@@ -72,6 +73,8 @@ class ReadingJournal:
 
 
 def initialize_capture(db):
+    from line.capture.transfers import initialize_transfers
+
     db.execute('''
         CREATE TABLE IF NOT EXISTS readings (
             shift_id TEXT NOT NULL,
@@ -88,3 +91,4 @@ def initialize_capture(db):
             FOREIGN KEY (shift_id, specimen_id) REFERENCES roster_items(shift_id, specimen_id)
         )
     ''')
+    initialize_transfers(db)

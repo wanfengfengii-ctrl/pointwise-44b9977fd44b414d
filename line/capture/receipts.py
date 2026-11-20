@@ -11,5 +11,11 @@ class Receipt:
     thickness_um: Fraction
 
 
+@dataclass(frozen=True)
+class TransferReceipt:
+    transfer_id: str
+    sequence: int
+
+
 def receipt_from_reading(reading: AcceptedReading):
     return Receipt(reading.claim.key.reading_id, reading.sequence, reading.thickness_um)

@@ -32,9 +32,15 @@ python3 -B -m line.workday
 | --- | --- | --- |
 | `line.intake.shifts` | `register(db, shift_id, left, right, entries)` 返回登记号。`entries` 是按清册排列的 `(specimen_id, station)`。`open(db, shift_id, left_version, right_version)` 返回含冻结版本的 `OpenedShift`。 | 清册非法或重复登记报 `RegistrationRejected`。未知班、已开班、缺版本或错绑报 `OpeningRejected`。 |
 | `line.calibration.revisions` | `calibrate(db, station, gain, offset_um, raw_min, raw_max, limit_um)` 返回新版本整数号。 | 非法工位、数值、倍率或区间报 `ProfileRejected`。 |
-| `line.capture.admission` | `ingest(db, shift_id, station, specimen_id, reading_id, raw_code, source_line)` 返回含测次号、序位、精确厚度的 `Receipt`。`ingest_recording(db, shift_id, station, source)` 返回逐条收件。 | 未开班、未知片、错台、越界或同号异参报 `IngestRejected`。录制格式错误报 `RecordingFormatError`。批次录制逐条提交，较早的合法收件可保留。 |
-| `line.closing.cut` | `seal(db, shift_id, station, cutoff)` 返回含固定封账号和质量明细的 `StationSeal`。截点 0 表示空前缀。 | 未开班、错台、负序或超出本台日志头报 `SealRejected`。 |
-| `line.report.publish` | `publish(db, first_seal_id, second_seal_id)` 接收同班左右两份封账号，参数顺序不限，返回整数班账号。 | 父账不存在、跨班、同侧、写入或提交失败报 `PublishRejected`，无新账可领。 |
-| `line.report.readback` | `read(db, report_id)` 返回 `ReportView`，含两父账号及原清册顺序的明细。 | 未知班账号报 `ReportNotFound`，它是 `LookupError` 的子类。 |
+| `line.capture.admission` | `ingest(db, shift_id, station, specimen_id, reading_id, raw_code, source_line)` 返回含测次号、序位、精确厚度的 `Receipt`。`ingest_recording(db, shift_id, station, source)` 返回逐条收件。`release(db, shift_id, station, transfer_id, specimen_id, reading_id)` 与 `receive(db, shift_id, station, transfer_id)` 返回含交接号和本台序位的 `TransferReceipt`，交接动作与实测共用本台从 1 开始的本地序列。 | 未开班、未知片、错台、越界或同号异参报 `IngestRejected`。录制格式错误报 `RecordingFormatError`。批次录制逐条提交，较早的合法收件可保留。非法交接、错站、错原测、同号异参或同片重复移交报 `TransferRejected`，不推进序位。 |
+| `line.closing.cut` | `seal(db, shift_id, station, cutoff)` 返回含固定封账号和质量明细的 `StationSeal`。截点 0 表示空前缀，仅发生交件或接件的本地位置也是合法截点。 | 未开班、错台、负序或超出本台日志头报 `SealRejected`。 |
+| `line.report.publish` | `publish(db, first_seal_id, second_seal_id)` 接收同班左右两份封账号，参数顺序不限，返回整数班账号。 | 父账不存在、跨班、同侧、接件已纳入而交件未纳入、写入或提交失败报 `PublishRejected`，无新账可领。 |
+| `line.report.readback` | `read(db, report_id)` 返回 `ReportView`，含两父账号及原清册顺序的明细；每片含 `location`（`left`、`in_transit` 或 `right`），移交片另含 `handover` 原据。 | 未知班账号报 `ReportNotFound`，它是 `LookupError` 的子类。 |
 
 标识符为首尾无空白且不含换行或空字符的非空字符串。同班测次身份覆盖工位、试片、精确原码值和行号，`10` 与 `10/1` 表示相同原码。录制采用文本 CSV，表头是 `specimen_id,reading_id,raw_code`，空物理行可跳过，原行号从 1 开始并包含表头。精确数值接受整数、`Fraction`、有限 `Decimal` 或分数/小数字符串。布尔值、浮点数、非有限值和空值拒收。读回的数值使用 `Fraction`。逐片清册位置从 0 开始，质量状态为 `missing`、`within_limit` 或 `over_limit`。
+
+## 试片移交
+
+左台可将本班已测试片按班内唯一的交接号交给右台，规则详见 `TRANSFERS.md`。每片每班只可移交一次，交件绑定本片已接纳的左台原测次，接件按同号在右台领取；交件、接件与实测各占所在台下一本地序位。交件后至接件前两台均不得为该片录入新测次，接件后仅右台可按本班冻结的右台量规续采。原动作按原参重投复领原收件，错绑或异参拒绝且不推进序位。
+
+班账按两份封账的截点裁定每片归属：仅纳入交件为 `in_transit`，交件、接件均纳入为 `right`，均未纳入沿用登记归属；接件纳入而交件未纳入时整单拒签且截点不动。`read` 明细的 `location` 给出归属，移交片的 `handover` 提供 `transfer_id`、`release_sequence`、`receive_sequence`（在途为 `None`）及 `handover.origin` 左台原测原据（含 `reading_id`、`sequence`、`raw_code`、`thickness_um`、`source_line`、`profile_version` 和 `source_station`）。无交接的旧账 `handover` 为 `None`，旧数据库重新初始化时自动补建交接表并为旧班账回填归属。

@@ -14,7 +14,7 @@ def publish(db, first_seal_id, second_seal_id):
     try:
         with write_transaction(db):
             seals = SealStore(db)
-            draft = assemble_report(seals.get(first_seal_id), seals.get(second_seal_id))
+            draft = assemble_report(db, seals.get(first_seal_id), seals.get(second_seal_id))
             report_id = ReportCatalog(db).save(draft)
     except (InvalidSealPair, sqlite3.Error) as exc:
         raise PublishRejected(f'report could not be published: {exc}') from exc
