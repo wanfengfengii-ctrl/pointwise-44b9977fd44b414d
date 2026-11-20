@@ -1,0 +1,13 @@
+{
+  "last_left_measurement": {"station": "L", "position": 2, "reading_id": "L2", "specimen": "T", "thickness_um": "7"},
+  "events": [
+    {"station": "L", "position": 3, "action": "release", "transfer_id": "H1", "specimen": "T", "reading_id": "L2"},
+    {"station": "R", "position": 2, "action": "receive", "transfer_id": "H1"}
+  ],
+  "manual_checks": [
+    {"cuts": [2, 1], "location": "L"},
+    {"cuts": [3, 1], "location": "in_transit", "reading_id": "L2", "thickness_um": "7"},
+    {"cuts": [3, 2], "location": "R", "reading_id": "L2", "thickness_um": "7"},
+    {"cuts": [2, 2], "outcome": "reject"}
+  ]
+}
